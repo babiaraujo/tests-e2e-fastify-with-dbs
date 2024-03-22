@@ -1,36 +1,38 @@
-import { MongoClient } from 'mongodb'
-import config from './../src/config.js';
-import { users } from './users.js';
-const isTestEnv = process.env.NODE_ENV === 'test'
-const log = (...args) => {
-    if (isTestEnv) return;
-    console.log(...args)
-}
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+
+dotenv.config(); 
+
+const dbURL = process.env.DB_URL;
+const dbName = process.env.DB_NAME;
+const collectionName = process.env.COLLECTION_NAME;
+const isTestEnv = process.env.NODE_ENV === 'test';
+
+const log = (...args) => !isTestEnv && console.log(...args);
 
 async function runSeed() {
-
-    const client = new MongoClient(config.dbURL);
+    const client = new MongoClient(dbURL);
     try {
         await client.connect();
+        log(`Db connected successfully to ${dbName}!`);
 
-        log(`Db connected successfully to ${config.dbName}!`);
-        const db = client.db(config.dbName);
+        const db = client.db(dbName);
+        const collection = db.collection(collectionName);
 
-        const collection = db.collection(config.collection);
+        await collection.deleteMany({});
+        await collection.insertMany(users); 
 
-
-        await collection.deleteMany({})
-        await Promise.all(users.map(i => collection.insertOne({ ...i })))
-
-        log(await collection.find().toArray())
-
+        const allUsers = await collection.find().toArray();
+        log(allUsers);
     } catch (err) {
-        log(err.stack);
+        console.error(err.stack); 
     } finally {
         await client.close();
     }
 }
 
-if (!isTestEnv) runSeed();
+if (!isTestEnv) {
+    runSeed().catch(console.error); 
+}
 
-export { runSeed }
+export { runSeed };
