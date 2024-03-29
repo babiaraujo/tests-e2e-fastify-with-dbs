@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { getDb } from './db.js';
+import Database from './db.js';
 
 const fastify = Fastify({});
 const isTestEnv = process.env.NODE_ENV === 'test';
@@ -9,54 +9,58 @@ if (!isTestEnv && !process.env.DB_NAME) {
     process.exit(1);
 }
 
-const { dbClient, collections: { dbUsers } } = await getDb().catch(err => {
-    console.error('Erro ao conectar ao banco de dados:', err);
-    process.exit(1);
-});
+const db = new Database();
 
-fastify.get('/customers', async (request, reply) => {
-    const users = await dbUsers
-        .find({})
-        .project({ _id: 0 })
-        .sort({ name: 1 })
-        .toArray()
-        .catch(err => {
+fastify.register(async (instance, opts) => {
+    try {
+        await db.connect();
+    } catch (err) {
+        console.error('Erro ao conectar ao banco de dados:', err);
+        process.exit(1);
+    }
+
+    instance.addHook('onClose', async () => {
+        console.log('Servidor fechado!');
+        await db.disconnect();
+    });
+
+    instance.get('/customers', async (request, reply) => {
+        try {
+            const users = await db.getAllUsers();
+            return reply.code(200).send(users);
+        } catch (err) {
             console.error('Erro ao buscar clientes:', err);
             reply.code(500).send('Erro ao buscar clientes');
-        });
-
-    return reply.code(200).send(users);
-});
-
-fastify.post('/customers', {
-    schema: {
-        body: {
-            type: 'object',
-            required: ['name', 'phone'],
-            properties: {
-                name: { type: 'string' },
-                phone: { type: 'string' },
-            },
-            additionalProperties: false,
-        },
-        response: {
-            201: {
-                type: 'string',
-            },
-        },
-    },
-}, async (request, reply) => {
-    const user = request.body;
-    await dbUsers.insertOne(user).catch(err => {
-        console.error('Erro ao adicionar cliente:', err);
-        reply.code(500).send('Erro ao adicionar cliente');
+        }
     });
-    return reply.code(201).send(`Usuário ${user.name} criado!`);
-});
 
-fastify.addHook('onClose', async () => {
-    console.log('Servidor fechado!');
-    return dbClient.close();
+    instance.post('/customers', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['name', 'phone'],
+                properties: {
+                    name: { type: 'string' },
+                    phone: { type: 'string' },
+                },
+                additionalProperties: false,
+            },
+            response: {
+                201: {
+                    type: 'string',
+                },
+            },
+        },
+    }, async (request, reply) => {
+        const user = request.body;
+        try {
+            await db.addUser(user);
+            return reply.code(201).send(`Usuário ${user.name} criado!`);
+        } catch (err) {
+            console.error('Erro ao adicionar cliente:', err);
+            reply.code(500).send('Erro ao adicionar cliente');
+        }
+    });
 });
 
 if (!isTestEnv) {

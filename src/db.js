@@ -1,24 +1,32 @@
 import { MongoClient } from 'mongodb';
 import config from './config.js';
 
-async function connect() {
-        const dbClient = new MongoClient(config.dbURL);
+class Database {
+    constructor() {
+        this.dbClient = new MongoClient(config.dbURL);
+        this.dbName = config.dbName;
+        this.collectionName = config.collection;
+    }
 
-        const db = dbClient.db(config.dbName);
-        const dbUsers = db.collection(config.collection);
-
+    async connect() {
+        await this.dbClient.connect();
+        this.db = this.dbClient.db(this.dbName);
+        this.collection = this.db.collection(this.collectionName);
         console.log('Connected to the database');
+    }
 
-        return { collections: { dbUsers }, dbClient };
+    async disconnect() {
+        await this.dbClient.close();
+        console.log('Disconnected from the database');
+    }
 
+    async getCollection(collectionName) {
+        return this.db.collection(collectionName);
+    }
+
+    async getAllUsers() {
+        return await this.collection.find().toArray();
+    }
 }
 
-async function getDb() {
-    const { collections, dbClient } = await connect();
-
-    return { collections, dbClient };
-}
-
-export {
-    getDb
-}
+export default Database;
