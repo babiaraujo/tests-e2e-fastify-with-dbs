@@ -1,14 +1,20 @@
-version: "3.5"
+# Versão do docker-compose
+version: "3.8"
 
+# Definição dos serviços
 services:
+  # Serviço para testes da API
   api01-test:
     hostname: api01
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     environment:
       DB_HOST: mongodb
       DB_NAME: customers
     ports:
       - "9999:9999"
+    # Comando para execução dos testes (comentado por padrão)
     # command: npm run test
     command: npm run test:dev
     volumes:
@@ -17,13 +23,15 @@ services:
     depends_on:
       - mongodb
 
+  # Serviço MongoDB
   mongodb:
     image: mongo
     ports:
-      - 27017:27017
+      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
 
+# Definição de volumes
 volumes:
   nodemodules: {}
