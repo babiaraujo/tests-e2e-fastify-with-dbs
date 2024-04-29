@@ -9,6 +9,7 @@ API in Node.js using Fastify that uses MongoDB to register customers and ensures
 
 ```http
   GET /customers
+  GET /customers/:id
 ```
 
 #### Create a customer
